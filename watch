@@ -1,0 +1,35 @@
+#!/usr/bin/sh
+function inotifyrun {
+  FORMAT=$(echo -e "$YELLOW%w%f$NC written")
+  "$@"
+  while inotifywait --exclude "(\.git|\.idea|jb_bak|\.map$)" -qre close_write --format "$FORMAT" .
+  do
+    "$@"
+  done
+}
+
+function renameToXml {
+  for i in *.html; do
+    mv $i ${i%.*}.xml
+  done
+}
+
+if [ "$1" == "rebuild" ]; then
+  tns platform remove android 2>/dev/null; tns platform add android && tns build android
+fi
+
+if [ "$1" == "clear" ]; then
+  rm app/*.{js,css,xml,html}
+fi
+
+if [ "$1" == "release" ]; then
+  return tns build android --release --key-store-path resources/Android/.keystore --key-store-password pass --key-store-alias alia --key-store-alias-password pass
+  echo "asdasd";
+fi
+
+coffee --no-header --output app --watch --bare --compile views/** &
+stylus --watch --out app app.styl &
+jade --pretty --hierarchy --watch views --out app &
+(cd app; inotifyrun renameToXml) &
+tns livesync android --watch &
+wait
